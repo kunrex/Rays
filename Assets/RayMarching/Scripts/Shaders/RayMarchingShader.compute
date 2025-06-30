@@ -1,0 +1,338 @@
+#pragma kernel CSMain
+
+struct ShapeData
+{
+    int typeKind;
+    
+    float3 position;
+
+    float dimensions1;
+    float2 dimensions2;
+    float3 dimensions3;
+
+    float4 objectColour;
+};
+
+struct ObjectData
+{
+    int blendKind;
+
+    int shapeCount;
+    int startIndex;
+};
+
+struct Ray
+{
+    float3 position;
+    float3 direction;
+};
+
+struct RayHit
+{
+    bool hit;
+    int shapeIndex;
+
+    float distanceTravelled;
+};
+
+cbuffer LightData
+{
+    float4 _lightColour;
+    float3 _lightPosition;
+
+    float _ambientStrength;
+    float _specularStrength;
+
+    float _shadowAttenuation;
+}
+
+cbuffer RenderData
+{
+    float _renderDistance;
+    float _minimumThreshold;
+}
+
+Texture2D<float4> source;
+RWTexture2D<float4> result;
+
+float4x4 cameraToWorld;
+float4x4 cameraProjectionInverse;
+
+float shapeCount;
+StructuredBuffer<ShapeData> shapes;
+
+float objectCount;
+StructuredBuffer<ObjectData> objects;
+
+float blendStrength;
+
+float smoothMin(float a, float b, float k)
+{
+    return -k * log(exp(-a / k) + exp(-b / k));
+}
+
+float SDSphere(float3 p, float radius)
+{
+    return length(p) - radius;
+}
+
+float SDBox(float3 localPosition, float3 dimensions3, float radius)
+{
+    float3 q = abs(localPosition) - dimensions3 + radius;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y,q.z)), 0.0) - radius;
+}
+
+float SDTorus(float3 localPosition, float2 dimensions2)
+{
+    float2 q = float2(length(localPosition.xz) - dimensions2.x, localPosition.y);
+    return length(q) - dimensions2.y;
+}
+
+float SDCone(float3 localPosition, float2 dimensions2)
+{
+    float2 c = float2(sin(dimensions2.x), cos(dimensions2.x));
+    float h = dimensions2.y;
+    
+    float2 q = h * float2(c.x/c.y, -1.0);
+    
+    float2 w = float2(length(localPosition.xz), localPosition.y);
+    float2 a = w - q * clamp(dot(w,q) / dot(q,q), 0.0, 1.0);
+    float2 b = w - q * float2(clamp(w.x / q.x, 0.0, 1.0), 1.0);
+    
+    float k = sign(q.y);
+    float d = min(dot(a, a), dot(b, b));
+    float s = max(k * (w.x * q.y - w.y * q.x), k*(w.y - q.y));
+    
+    return sqrt(d) * sign(s);
+}
+
+float SDCylinder(float3 p, float2 dimensions2)
+{
+    float2 d = abs(float2(length(p.xz), p.y)) - float2(dimensions2.x, dimensions2.y);
+    return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
+float SignedDistance(float3 position, ShapeData shapeData)
+{
+    switch (shapeData.typeKind)
+    {
+        case 0:
+            return SDBox(position - shapeData.position, shapeData.dimensions3, shapeData.dimensions1);
+        case 1:
+            return SDSphere(position - shapeData.position, shapeData.dimensions1);
+        case 2:
+            return SDTorus(position - shapeData.position, shapeData.dimensions2);
+        case 3:
+            return SDCone(position - shapeData.position, shapeData.dimensions2);
+        case 4:
+            return SDCylinder(position - shapeData.position, shapeData.dimensions2);
+        default:
+            return 0;
+    }
+}
+
+float3 CalculateNormal(float3 position, ShapeData shapeData)
+{
+    const float eps = 0.001;
+
+    float3 v1 = float3(
+        SignedDistance(position + float3(eps, 0, 0), shapeData),
+        SignedDistance(position + float3(0, eps, 0), shapeData),
+        SignedDistance(position + float3(0, 0, eps), shapeData)
+    );
+
+    float3 v2 = float3(
+        SignedDistance(position - float3(eps, 0, 0), shapeData),
+        SignedDistance(position - float3(0, eps, 0), shapeData),
+        SignedDistance(position - float3(0, 0, eps), shapeData)
+    );
+
+    return normalize(v1 - v2);
+}
+
+float RayMarch(in float3 position, inout RayHit rayHit, in ObjectData object)
+{
+    switch (object.blendKind)
+    {
+        case 0:
+            {
+                if(object.shapeCount != 2)
+                    break;
+
+                ShapeData a = shapes[object.startIndex];
+                ShapeData b = shapes[object.startIndex + 1];
+
+                float minDistance = max(SignedDistance(position, a), SignedDistance(position, b));
+                if(minDistance < _minimumThreshold)
+                {
+                    rayHit.hit = true;
+                    rayHit.shapeIndex = object.startIndex;
+                }
+                
+                return minDistance;
+            }
+        case 1:
+            {
+                if(object.shapeCount != 2)
+                    break;
+
+                ShapeData a = shapes[object.startIndex];
+                ShapeData b = shapes[object.startIndex + 1];
+
+                float minDistance = max(SignedDistance(position, a), -1 * SignedDistance(position, b));
+                if(minDistance < _minimumThreshold)
+                {
+                    rayHit.hit = true;
+                    rayHit.shapeIndex = object.startIndex;
+                }
+                
+                return minDistance;
+            }
+        default:
+            break;
+    }
+    
+    float minDistance = _renderDistance;
+    for(int i = 0; i < object.shapeCount; i++)
+    {
+        int index = object.startIndex + i;
+        ShapeData current = shapes[index];
+
+        if(object.blendKind == 2)
+            minDistance = smoothMin(SignedDistance(position, current), minDistance, blendStrength);
+        else
+            minDistance = min(SignedDistance(position, current), minDistance);
+       
+        if(minDistance < _minimumThreshold)
+        {
+            rayHit.hit = true;
+            rayHit.shapeIndex = index;
+
+            break;
+        }
+    }
+    
+    return minDistance;
+}
+
+void RayMarch(in float3 position, inout RayHit rayHit)
+{
+    rayHit.hit = false;
+
+    float minDistance = _renderDistance; 
+    for(int i = 0; i < objectCount; i++)
+    {
+        minDistance = min(RayMarch(position, rayHit, objects[i]), minDistance);
+        if(rayHit.hit)
+            break;
+    }
+    
+    rayHit.distanceTravelled = minDistance;
+}
+
+float SoftShadow(in float3 hitPosition)
+{
+    float3 direction = normalize(_lightPosition - hitPosition);
+    float lightDistance = length(_lightPosition - hitPosition);
+
+    float currentDistance = 0;
+    float3 currentPosition = hitPosition + direction * 0.01; 
+
+    RayHit hit = {
+        false,
+        -1,
+        .01
+    };
+
+    float softness = 0;
+    while(currentDistance < lightDistance)
+    {
+        RayMarch(currentPosition, hit);
+
+        currentDistance += hit.distanceTravelled;
+        currentPosition += direction * hit.distanceTravelled;
+
+        softness = currentDistance / lightDistance;
+
+        if(hit.hit)
+            break;
+    }
+
+    return clamp(softness, 0.0, 1);
+}
+
+float4 CalculateColour(float3 hitPosition, float3 cameraPosition, ShapeData shapeData)
+{
+    float3 lightDirection = normalize(_lightPosition - hitPosition);
+    
+    float4 objectColour = shapeData.objectColour;
+    float4 ambientColour = _lightColour * _ambientStrength;
+
+    float3 normal = CalculateNormal(hitPosition, shapeData);
+
+    float softShadow = SoftShadow(hitPosition);
+    float shadow = 1 - softShadow * -_shadowAttenuation;
+    
+    float diffuse = max(dot(normal, lightDirection), 0.0);
+    float4 diffuseColour = diffuse * _lightColour;
+
+    float3 viewDirection = normalize(cameraPosition - hitPosition);
+    float3 reflectDirection = normalize(reflect(-lightDirection, normal));
+
+    float specular = pow(max(dot(viewDirection, reflectDirection), 0.0), 32);
+    float4 specularColour = _specularStrength * specular * _lightColour;  
+    
+    float4 result = (ambientColour + shadow * (diffuseColour + specularColour)) * objectColour;
+    return result;
+}
+
+Ray GetCameraRay(float2 uv) {
+    float3 origin = mul(cameraToWorld, float4(0,0,0,1)).xyz;
+    float3 direction = mul(cameraProjectionInverse, float4(uv,0,1)).xyz;
+    direction = mul(cameraToWorld, float4(direction,0)).xyz;
+    direction = normalize(direction);
+
+    Ray ray;
+    ray.direction = direction;
+    ray.position = origin;
+    return ray;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint height, width;
+    result.GetDimensions(height, width);
+
+    result[id.xy] = source[id.xy];
+
+    float2 nvc = id.xy / float2(width, height) * 2 - 1;
+
+    Ray ray = GetCameraRay(nvc);
+
+    float3 direction = ray.direction;
+    float3 initialPosition = ray.position;
+    
+    float currentDistance = 0;
+    float3 currentPosition = initialPosition;
+
+    RayHit hit = {
+        false,
+        -1,
+        0
+    };
+    
+    while(currentDistance < _renderDistance)
+    {
+        RayMarch(currentPosition, hit);
+
+        if(hit.hit)
+        {
+            result[id.xy] = CalculateColour(currentPosition, initialPosition, shapes[hit.shapeIndex]);
+            return;
+        }
+        
+        currentDistance += hit.distanceTravelled;
+        currentPosition += direction * hit.distanceTravelled;
+    }
+}
