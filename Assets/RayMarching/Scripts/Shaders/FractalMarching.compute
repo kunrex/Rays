@@ -1,0 +1,153 @@
+#pragma kernel CSMain
+
+struct Ray
+{
+    float3 position;
+    float3 direction;
+};
+
+Texture2D<float4> source;
+RWTexture2D<float4> result;
+
+cbuffer SphereData
+{
+    float _sphereRadius;
+    float3 _spherePosition;
+
+    float4 _sphereColour;
+    
+    float4 _lightColour;
+    float3 _lightPosition;
+
+    float _ambientStrength;
+    float _specularStrength;
+
+    float _shadowAttenuation; 
+}
+
+cbuffer SceneData
+{
+    float _renderDistance;
+    float _minimumThreshold;
+}
+
+float4x4 cameraToWorld;
+float4x4 cameraProjectionInverse;
+
+float fmodValue;
+
+float Distance(float3 position)
+{
+    return length(fmod(position, fmodValue) - _spherePosition) - _sphereRadius;
+}
+
+float3 CalculateNormal(float3 position)
+{
+    const float eps = 0.001;
+
+    float3 v1 = float3(
+        Distance(position + float3(eps, 0, 0)),
+        Distance(position + float3(0, eps, 0)),
+        Distance(position + float3(0, 0, eps))
+    );
+
+    float3 v2 = float3(
+        Distance(position - float3(eps, 0, 0)),
+        Distance(position - float3(0, eps, 0)),
+        Distance(position - float3(0, 0, eps))
+    );
+
+    return normalize(v1 - v2);
+}
+
+float SoftShadow(in float3 hitPosition)
+{
+    float3 direction = normalize(_lightPosition - hitPosition);
+    float lightDistance = length(_lightPosition - hitPosition);
+
+    float currentDistance = 0;
+    float3 currentPosition = hitPosition + direction * 0.01; 
+
+    float softness = 0;
+    while(currentDistance < lightDistance)
+    {
+        float distance = Distance(currentPosition);
+
+        if(distance < _minimumThreshold)
+            break;
+        
+        currentPosition += direction * distance;
+        currentDistance += distance;
+        
+        softness = currentDistance / lightDistance;
+    }
+
+    return clamp(softness, 0.0, 1);
+}
+
+float4 CalculateColour(float3 hitPosition, float3 cameraPosition)
+{
+    float3 lightDirection = normalize(_lightPosition - hitPosition);
+    
+    float4 ambientColour = _lightColour * _ambientStrength;
+
+    float3 normal = CalculateNormal(hitPosition);
+
+    float softShadow = SoftShadow(hitPosition);
+    float shadow = 1 - softShadow * -_shadowAttenuation;
+    
+    float diffuse = max(dot(normal, lightDirection), 0.0);
+    float4 diffuseColour = diffuse * _lightColour;
+
+    float3 viewDirection = normalize(cameraPosition - hitPosition);
+    float3 reflectDirection = normalize(reflect(-lightDirection, normal));
+
+    float specular = pow(max(dot(viewDirection, reflectDirection), 0.0), 32);
+    float4 specularColour = _specularStrength * specular * _lightColour;  
+    
+    float4 result = (ambientColour + shadow * (diffuseColour + specularColour)) * _sphereColour;
+    return result;
+}
+
+Ray GetCameraRay(float2 uv) {
+    float3 origin = mul(cameraToWorld, float4(0,0,0,1)).xyz;
+    float3 direction = mul(cameraProjectionInverse, float4(uv,0,1)).xyz;
+    direction = mul(cameraToWorld, float4(direction,0)).xyz;
+    direction = normalize(direction);
+
+    Ray ray;
+    ray.direction = direction;
+    ray.position = origin;
+    return ray;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint height, width;
+    result.GetDimensions(height, width);
+
+    result[id.xy] = source[id.xy];
+
+    float2 nvc = id.xy / float2(width, height) * 2 - 1;
+    Ray ray = GetCameraRay(nvc);
+
+    float3 direction = ray.direction;
+    float3 initialPosition = ray.position;
+
+    float currentDistance = 0;
+    float3 currentPosition = initialPosition;
+
+    while(currentDistance < _renderDistance)
+    {
+        float distance = Distance(currentPosition);
+        if(distance < _minimumThreshold)
+        {
+            result[id.xy] = CalculateColour(currentPosition, initialPosition);
+            return;
+        }
+        
+        currentPosition += direction * distance;
+        currentDistance += distance;
+    }
+}

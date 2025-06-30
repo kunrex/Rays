@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using NUnit.Framework;
+
 using UnityEngine;
 
 using RayMarching.Shapes;
@@ -17,10 +17,8 @@ public sealed class RayMarcher : MonoBehaviour
     }
     
     [SerializeField] private Camera cam;
-    [SerializeField] private Vector2Int numPoints;
-
+    
     [SerializeField] private Color lightColour;
-    [SerializeField] private Color skyboxColour;
     [SerializeField] private Vector3 lightPosition;
 
     [SerializeField] private float ambientStrength;
