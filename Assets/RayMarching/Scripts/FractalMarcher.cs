@@ -22,6 +22,10 @@ namespace RayMarching.Scripts
         [SerializeField] private float minimumThreshold;
         
         [Range(0.1f, 10), SerializeField] private float fmodValue;
+
+        [Range(10, 256), SerializeField] private int iterations;
+        [Range(2, 16), SerializeField] private int bailout;
+        [Range(2, 16), SerializeField] private float power;
         
         [SerializeField] private RenderTexture texture;
         [SerializeField] private ComputeShader rayMarchingShader;
@@ -51,6 +55,10 @@ namespace RayMarching.Scripts
             rayMarchingShader.SetFloat("_minimumThreshold", minimumThreshold);
             
             rayMarchingShader.SetFloat("fmodValue", fmodValue);
+            
+            rayMarchingShader.SetInt("iterations", iterations);
+            rayMarchingShader.SetInt("bailout", bailout);
+            rayMarchingShader.SetFloat("power", power);
         }
         
         private void OnRenderImage(RenderTexture source, RenderTexture destination)

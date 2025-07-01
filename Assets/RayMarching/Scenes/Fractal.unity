@@ -132,6 +132,7 @@ GameObject:
   - component: {fileID: 254651856}
   - component: {fileID: 254651859}
   - component: {fileID: 254651860}
+  - component: {fileID: 254651861}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -156,8 +157,8 @@ Camera:
   m_GameObject: {fileID: 254651855}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.2830189, g: 0.2830189, b: 0.2830189, a: 0.21176471}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -207,7 +208,7 @@ Transform:
   m_GameObject: {fileID: 254651855}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalPosition: {x: 0, y: 1, z: -2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -233,10 +234,13 @@ MonoBehaviour:
   lightPosition: {x: 0, y: 0, z: 0}
   ambientStrength: 0.1
   specularStrength: 0.1
-  shadowAttenuation: 0
+  shadowAttenuation: 0.15
   renderDistance: 1000
   minimumThreshold: 0.01
   fmodValue: 5
+  iterations: 128
+  bailout: 8
+  power: 8
   texture: {fileID: 0}
   rayMarchingShader: {fileID: 7200000, guid: 7dac2ac7cefb7466a809ca84968cb441, type: 3}
 --- !u!114 &254651860
@@ -262,6 +266,32 @@ MonoBehaviour:
   shadowAttenuation: 0.4
   texture: {fileID: 0}
   rayMarchingShader: {fileID: 7200000, guid: 3a38a95c190b449b48c70754307c24ee, type: 3}
+--- !u!114 &254651861
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 254651855}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 436275a13d4459746955fc6db5953473, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _active: 1
+  _enableRotation: 1
+  _mouseSense: 1.8
+  _enableTranslation: 1
+  _translationSpeed: 55
+  _enableMovement: 1
+  _movementSpeed: 10
+  _boostedSpeed: 50
+  _boostSpeed: 304
+  _moveUp: 101
+  _moveDown: 113
+  _enableSpeedAcceleration: 1
+  _speedAccelerationFactor: 1.5
+  _initPositonButton: 114
 --- !u!1 &526290453
 GameObject:
   m_ObjectHideFlags: 0
