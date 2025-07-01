@@ -6,6 +6,19 @@ struct Ray
     float3 direction;
 };
 
+Texture2D<float4> source;
+RWTexture2D<float4> result;
+
+cbuffer SphereData
+{
+    float _sphereRadius;
+    float3 _spherePosition;
+
+    float4 _sphereColour;
+
+    float _fmodValue;
+}
+
 cbuffer LightData
 {
     float4 _lightColour;
@@ -14,55 +27,21 @@ cbuffer LightData
     float _ambientStrength;
     float _specularStrength;
 
-    float _shadowAttenuation;
-
-    float4 _borderColour;
-    float _borderStrength;
+    float _shadowAttenuation; 
 }
 
 cbuffer SceneData
 {
     float _renderDistance;
     float _minimumThreshold;
-
-    int _borderSteps;
 }
-
-Texture2D<float4> source;
-RWTexture2D<float4> result;
 
 float4x4 cameraToWorld;
 float4x4 cameraProjectionInverse;
 
-int bailout;
-float power;
-int iterations;
-
-float4 nearColour;
-float4 farColour;
-
-float Distance(float3 pos) {
-    float3 z = pos;
-    
-    float dr = 1.0;
-    float r = 0.0;
-    
-    for (int i = 0; i < iterations ; i++) {
-        r = length(z);
-        if (r>bailout) break;
-        
-        float theta = acos(z.z/r);
-        float phi = atan(z.y/z.x);
-        dr =  pow( r, power-1.0)*power*dr + 1.0;
-        
-        float zr = pow( r,power);
-        theta = theta*power;
-        phi = phi*power;
-        
-        z = zr*float3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
-        z+=pos;
-    }
-    return 0.5*log(r)*r/dr;
+float Distance(float3 position)
+{
+    return length(fmod(position, _fmodValue) - _spherePosition) - _sphereRadius;
 }
 
 float3 CalculateNormal(float3 position)
@@ -109,7 +88,7 @@ float SoftShadow(in float3 hitPosition)
     return clamp(softness, 0.0, 1);
 }
 
-float4 CalculateColour(float3 hitPosition, float3 cameraPosition, int marchSteps)
+float4 CalculateColour(float3 hitPosition, float3 cameraPosition)
 {
     float3 lightDirection = normalize(_lightPosition - hitPosition);
     
@@ -127,15 +106,9 @@ float4 CalculateColour(float3 hitPosition, float3 cameraPosition, int marchSteps
     float3 reflectDirection = normalize(reflect(-lightDirection, normal));
 
     float specular = pow(max(dot(viewDirection, reflectDirection), 0.0), 32);
-    float4 specularColour = _specularStrength * specular * _lightColour;
-
-    float4 colour = lerp(nearColour, farColour, saturate(length(hitPosition - cameraPosition) / _renderDistance));
-
-    float4 borderColour = float4(0, 0, 0, 1);
-    if(marchSteps > _borderSteps)
-        borderColour = _borderColour * _borderStrength;
+    float4 specularColour = _specularStrength * specular * _lightColour;  
     
-    float4 result = (ambientColour + borderColour + shadow * (diffuseColour + specularColour)) * colour;
+    float4 result = (ambientColour + shadow * (diffuseColour + specularColour)) * _sphereColour;
     return result;
 }
 
@@ -168,19 +141,16 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     float currentDistance = 0;
     float3 currentPosition = initialPosition;
 
-    int marchSteps = 0;
     while(currentDistance < _renderDistance)
     {
         float distance = Distance(currentPosition);
         if(distance < _minimumThreshold)
         {
-            result[id.xy] = CalculateColour(currentPosition, initialPosition, marchSteps);
+            result[id.xy] = CalculateColour(currentPosition, initialPosition);
             return;
         }
         
         currentPosition += direction * distance;
         currentDistance += distance;
-
-        marchSteps++;
     }
 }

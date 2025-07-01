@@ -7,25 +7,27 @@ namespace RayMarching.Scripts
     {
         [SerializeField] private Camera cam;
         
-        [SerializeField] private float sphereRadius;
-        [SerializeField] private Vector3 spherePosition;
-        [SerializeField] private Color sphereColour;
-
         [SerializeField] private Color lightColour;
         [SerializeField] private Vector3 lightPosition;
         
         [SerializeField] private float ambientStrength;
         [SerializeField] private float specularStrength;
+        
         [SerializeField] private float shadowAttenuation;
-    
-        [SerializeField] private float renderDistance;
+
+        [SerializeField] private float borderStrength;
+        [SerializeField] private Color borderColour;
+        [SerializeField] private int borderSteps;
+        
+        [Range(2, 100), SerializeField] private float renderDistance;
         [SerializeField] private float minimumThreshold;
         
-        [Range(0.1f, 10), SerializeField] private float fmodValue;
-
-        [Range(10, 256), SerializeField] private int iterations;
-        [Range(2, 16), SerializeField] private int bailout;
         [Range(2, 16), SerializeField] private float power;
+        [Range(2, 16), SerializeField] private int bailout;
+        [Range(10, 256), SerializeField] private int iterations;
+
+        [SerializeField] private Color nearColour;
+        [SerializeField] private Color farColour;
         
         [SerializeField] private RenderTexture texture;
         [SerializeField] private ComputeShader rayMarchingShader;
@@ -39,10 +41,6 @@ namespace RayMarching.Scripts
 
         private void SetConstants()
         {
-            rayMarchingShader.SetFloat("_sphereRadius", sphereRadius);
-            rayMarchingShader.SetVector("_spherePosition", spherePosition);
-            rayMarchingShader.SetVector("_sphereColour", sphereColour);
-            
             rayMarchingShader.SetVector("_lightColour", lightColour);
             rayMarchingShader.SetVector("_lightPosition", lightPosition);
         
@@ -54,11 +52,16 @@ namespace RayMarching.Scripts
             rayMarchingShader.SetFloat("_renderDistance", renderDistance);
             rayMarchingShader.SetFloat("_minimumThreshold", minimumThreshold);
             
-            rayMarchingShader.SetFloat("fmodValue", fmodValue);
-            
-            rayMarchingShader.SetInt("iterations", iterations);
-            rayMarchingShader.SetInt("bailout", bailout);
             rayMarchingShader.SetFloat("power", power);
+            rayMarchingShader.SetInt("bailout", bailout);
+            rayMarchingShader.SetInt("iterations", iterations);
+            
+            rayMarchingShader.SetVector("nearColour", nearColour);
+            rayMarchingShader.SetVector("farColour", farColour);
+            
+            rayMarchingShader.SetInt("_borderSteps", borderSteps);
+            rayMarchingShader.SetFloat("_borderStrength", borderStrength);
+            rayMarchingShader.SetVector("_borderColour", borderColour);
         }
         
         private void OnRenderImage(RenderTexture source, RenderTexture destination)
