@@ -1,0 +1,34 @@
+#pragma kernel CSMain
+
+cbuffer TrailData
+{
+   float _blendStrength;
+   float _cleanUpStrength;
+}
+
+Texture2D<float4> source;
+RWTexture2D<float4> result;
+
+float deltaTime;
+
+float4 average(in int2 uv, in uint height, in uint width)
+{
+   float4 sum = 0;
+   for(uint i = max(uv.x - 1, 0); i <= min(uv.x + 1, width - 1); i++)
+      for(uint j = max(uv.y - 1, 0); j <= min(uv.y + 1, height - 1); j++)
+         sum += source[uint2(i, j)];
+
+   return sum / 9;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+   uint height, width;
+   result.GetDimensions(height, width);
+
+   float4 original = source[id.xy];
+   float4 diffused = lerp(original, average(id.xy, height, width), _blendStrength * deltaTime);
+   
+   result[id.xy] = clamp(diffused - _cleanUpStrength * deltaTime, 0, 1);
+}

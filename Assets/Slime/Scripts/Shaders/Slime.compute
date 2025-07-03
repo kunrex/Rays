@@ -1,0 +1,113 @@
+#pragma kernel CSMain
+
+struct Agent
+{
+    float2 forward;
+    float2 normalizedPosition;
+};
+
+cbuffer AgentData
+{
+    float _agentSpeed;
+    float _agentTurnStrength;
+
+    float _agentViewAngle;
+    float _agentViewDistance;
+
+    float _trailStrength;
+
+    float4 _slimeColour;
+}
+
+Texture2D<float4> source;
+RWTexture2D<float4> result;
+
+RWStructuredBuffer<Agent> agents;
+
+float deltaTime;
+
+float rand(float2 seed)
+{
+    return frac(sin(dot(seed, float2(12.9898, 78.233))) * 43758.5453);
+}
+
+float2 reflectDirection(float2 normalizedPosition, float2 direction)
+{
+    float2 normal;
+    if(normalizedPosition.x < 0)
+        normal = float2(1, 0);
+    else if(normalizedPosition.x > 1)
+        normal = float2(-1, 0);
+    else if(normalizedPosition.y < 0)
+        normal = float2(0, 1);
+    else
+        normal = float2(0, -1);
+
+    return reflect(direction, normal);
+}
+
+void applyRandom(inout float2 direction)
+{
+    float randomAngle = (rand(direction) - 0.5) * 2.0 * _agentTurnStrength;
+    float cosAngle = cos(randomAngle);
+    float sinAngle = sin(randomAngle);
+    
+    float ox = direction.x;
+    float oy = direction.y;
+
+    direction.x = ox * cosAngle - oy * sinAngle;
+    direction.y = ox * sinAngle + oy * cosAngle;
+}
+
+float2 rotateVector(in float2 direction, in float angle)
+{
+    float cosAngle = cos(angle), sinAngle = sin(angle);
+    return float2( direction.x * cosAngle - direction.y * sinAngle, direction.x * sinAngle + direction.y * cosAngle);
+}
+
+float2 calculateDirection(float2 direction, uint2 uv)
+{
+    uint2 localLeft  = uint2(uv + rotateVector(direction, -_agentViewAngle) * _agentViewDistance);
+    uint2 localRight = uint2(uv + rotateVector(direction,  _agentViewAngle) * _agentViewDistance);
+    uint2 localFront = uint2(uv + direction * _agentViewDistance);
+    
+    float leftStrength  = dot(source[localLeft].rgb,  float3(1, 1, 1));
+    float rightStrength = dot(source[localRight].rgb, float3(1, 1, 1));
+    float frontStrength = dot(source[localFront].rgb, float3(1, 1, 1));
+    
+    if (leftStrength > rightStrength)
+    {
+        if (leftStrength > frontStrength)
+            direction = rotateVector(direction, -_agentViewAngle);
+    }
+    else if (rightStrength > frontStrength)
+        direction = rotateVector(direction, _agentViewAngle);
+    
+    applyRandom(direction);
+    return direction;
+}
+
+[numthreads(10,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint height, width;
+    result.GetDimensions(height, width);
+    
+    Agent current = agents[id.x];
+    uint2 actual = current.normalizedPosition * float2(width, height);
+
+    result[actual] = _slimeColour;
+
+    float2 newPosition = current.normalizedPosition + current.forward * _agentSpeed * deltaTime;
+
+    float2 newDirection;
+    if(newPosition.x > 1 || newPosition.y > 1 || newPosition.x < 0 || newPosition.y < 0)
+        newDirection = reflectDirection(newPosition, current.forward);
+    else
+        newDirection = calculateDirection(current.forward, actual);
+    
+    current.normalizedPosition = newPosition;
+    current.forward = newDirection;
+    
+    agents[id.x] = current;
+}
