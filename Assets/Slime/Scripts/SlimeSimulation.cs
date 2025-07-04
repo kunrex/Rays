@@ -15,9 +15,7 @@ public class SlimeSimulation : MonoBehaviour
     
     [SerializeField] private float agentSpeed;
     [SerializeField] private float agentTurnStrength;
-
-    [SerializeField] private float trailStrength;
-
+    
     [SerializeField] private float blendStrength;
     [SerializeField] private float cleanUpStrength;
 
@@ -36,6 +34,11 @@ public class SlimeSimulation : MonoBehaviour
 
         agents = new Agent[agentCount];
 
+        Square();
+    }
+
+    private void Circle()
+    {
         float cos = Mathf.Cos(360f / agentCount * Mathf.Deg2Rad), sin = Mathf.Sin(360f / agentCount * Mathf.Deg2Rad);
         
         var currentDirection = new Vector2(1, 0);
@@ -52,11 +55,29 @@ public class SlimeSimulation : MonoBehaviour
         }
     }
 
+    private void Square()
+    {
+        float radius = 1f;
+        
+        for (int i = 0; i < agentCount; i++)
+        {
+            var random = new Vector2(Random.Range(-radius / 2, radius / 2), Random.Range(-radius / 2, radius / 2));
+            var position = new Vector2(.5f, .5f) + random;
+            
+            var agent = new Agent()
+            {
+                normalizedPosition = position,
+                forward = -random.normalized
+            };
+            
+            agents[i] = agent;
+        }
+    }
+
     private void SetConstants()
     {
         slimeShader.SetFloat("_agentSpeed", agentSpeed);
         slimeShader.SetFloat("_agentTurnStrength", agentTurnStrength);
-        slimeShader.SetFloat("_trailStrength", trailStrength);
         
         slimeShader.SetFloat("_agentViewAngle", agentViewAngle * Mathf.Deg2Rad);
         slimeShader.SetFloat("_agentViewDistance", agentViewDistance);

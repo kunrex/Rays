@@ -225,13 +225,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cam: {fileID: 1111658081}
-  agentCount: 5000
-  slimeColour: {r: 0.43137255, g: 0.5058824, b: 0.6431373, a: 1}
+  agentCount: 10000
+  slimeColour: {r: 0.6019665, g: 0.43137255, b: 0.6431373, a: 1}
   agentSpeed: 0.1
   agentTurnStrength: 0.1
   trailStrength: 0.01
   blendStrength: 5
-  cleanUpStrength: 0.1
+  cleanUpStrength: 0.25
   agentViewAngle: 20
   agentViewDistance: 3
   texture: {fileID: 0}

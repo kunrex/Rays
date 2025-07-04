@@ -14,8 +14,6 @@ cbuffer AgentData
     float _agentViewAngle;
     float _agentViewDistance;
 
-    float _trailStrength;
-
     float4 _slimeColour;
 }
 
@@ -26,12 +24,12 @@ RWStructuredBuffer<Agent> agents;
 
 float deltaTime;
 
-float rand(float2 seed)
+float rand(in float2 seed)
 {
     return frac(sin(dot(seed, float2(12.9898, 78.233))) * 43758.5453);
 }
 
-float2 reflectDirection(float2 normalizedPosition, float2 direction)
+float2 reflectDirection(in float2 normalizedPosition, in float2 direction)
 {
     float2 normal;
     if(normalizedPosition.x < 0)
@@ -65,7 +63,7 @@ float2 rotateVector(in float2 direction, in float angle)
     return float2( direction.x * cosAngle - direction.y * sinAngle, direction.x * sinAngle + direction.y * cosAngle);
 }
 
-float2 calculateDirection(float2 direction, uint2 uv)
+float2 calculateDirection(float2 direction, in uint2 uv)
 {
     uint2 localLeft  = uint2(uv + rotateVector(direction, -_agentViewAngle) * _agentViewDistance);
     uint2 localRight = uint2(uv + rotateVector(direction,  _agentViewAngle) * _agentViewDistance);
