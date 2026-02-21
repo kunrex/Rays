@@ -1,0 +1,274 @@
+#pragma kernel CSMain
+
+struct Ray
+{
+    float3 position;
+    float3 direction;
+};
+
+struct RayHit
+{
+    float t;
+    
+    bool inside;
+    
+    float3 normal;
+    float3 position;
+
+    int sphereIndex;
+};
+
+struct Sphere
+{
+    float radius;
+    float3 center;
+    
+    int materialType;
+
+    float4 albedo;
+    float4 emissionColor;
+
+    float diffuseStrength;
+    float emissiveStrength;
+};
+
+cbuffer RenderThresholds
+{
+    float _renderThreshold;
+    
+    float _minimumRenderThreshold;
+    float _maximumRenderThreshold;
+}
+
+cbuffer GlobalCounts
+{
+    int _pixelRayCount;
+    int _childRayCount;
+}
+
+cbuffer Ambience 
+{
+    float _ambientStrength;
+    
+    float4 _ambientColorSky;
+    float4 _ambientColorHorizon;
+}
+
+RWTexture2D<float4> result;
+
+float4x4 cameraToWorld;
+float4x4 cameraProjectionInverse;
+
+int sphereCount;
+StructuredBuffer<Sphere> sphereBuffer;
+
+// www.pcg-random.org and www.shadertoy.com/view/XlGcRh, and Sebastian Lagues coding adventure :D
+float RandomValue(inout uint state)
+{
+    state = state * 747796405 + 2891336453;
+    uint result = ((state >> ((state >> 28) + 4)) ^ state) * 277803737;
+    result = (result >> 22) ^ result;
+    return result / 4294967295.0;
+}
+
+float RandomValueNormal(inout uint state)
+{
+    float theta = 2 * 3.1415926 * RandomValue(state);
+    float rho = sqrt(-2 * log(RandomValue(state)));
+    return rho * cos(theta);
+}
+
+float3 RandomFloat3(inout uint state)
+{
+    return normalize(float3(RandomValueNormal(state), RandomValueNormal(state), RandomValueNormal(state)));
+}
+
+float3 RandomFloat3OnHemisphere(inout uint state, float3 normal)
+{
+    float3 direction = RandomFloat3(state);
+    return direction * sign(dot(normal, direction));
+}
+
+RayHit InitRayHit()
+{
+    RayHit rayHit;
+
+    rayHit.t = 0;
+    
+    rayHit.inside = false;
+    rayHit.position = rayHit.normal = 0;
+
+    rayHit.sphereIndex = -1;
+
+    return rayHit;
+}
+
+Ray GetCameraRay(in float2 uv) {
+    float3 origin = mul(cameraToWorld, float4(0,0,0,1)).xyz;
+    float3 direction = mul(cameraProjectionInverse, float4(uv,0,1)).xyz;
+    direction = mul(cameraToWorld, float4(direction,0)).xyz;
+    direction = normalize(direction);
+
+    Ray ray;
+    ray.direction = direction;
+    ray.position = origin;
+    return ray;
+}
+
+float3 RayAt(in Ray ray, in float t)
+{
+    return ray.position + ray.direction * t;
+}
+
+float RayDistance(in Sphere sphere, in Ray ray, in float maximumDistance)
+{
+    float3 oc = sphere.center - ray.position;
+    float a = dot(ray.direction, ray.direction);
+    float h = dot(ray.direction, oc);
+    float c = dot(oc, oc) - sphere.radius * sphere.radius;
+    float discriminant = h*h - a*c;
+    if(discriminant < 0)
+    {
+        return -1;
+    } 
+    
+    float root = (h - sqrt(discriminant)) / a;
+    if(root <= _minimumRenderThreshold || maximumDistance < root)
+    {
+        root = (h + sqrt(discriminant)) / a;
+        if (root <= _minimumRenderThreshold || maximumDistance < root) 
+        {
+            return -1;
+        }
+    }
+    
+    return root;
+}
+
+bool CalculateHit(in Sphere sphere, in Ray ray, in float maximumDistance, inout RayHit hit)
+{
+    hit.t = RayDistance(sphere, ray, maximumDistance);
+    if(hit.t < 0)
+    {
+        return false;
+    }
+    
+    hit.position = RayAt(ray, hit.t);
+
+    float3 outwardNormal = (hit.position - sphere.center) / sphere.radius;
+
+    hit.inside = dot(ray.direction, outwardNormal) > 0.0f;
+    hit.normal = hit.inside ? -outwardNormal : outwardNormal;
+
+    return true;
+}
+
+bool RayTrace(in Ray ray, inout RayHit finalHit)
+{
+    bool hit = false;
+    RayHit rayHit = InitRayHit();
+    float closest = _maximumRenderThreshold;
+    
+    for(int i = 0; i < sphereCount; i++)
+    {
+        Sphere sphere = sphereBuffer[i];
+        if(CalculateHit(sphere, ray, closest, rayHit))
+        {
+            hit = true;
+            closest = rayHit.t;
+
+            finalHit = rayHit;
+            finalHit.sphereIndex = i;
+        }
+
+        if(closest < _renderThreshold)
+        {
+            break;
+        }
+    }
+
+    return hit;
+}
+
+bool Reflection(in RayHit rayHit, inout Ray ray, inout float4 attenuation)
+{
+    ray.position = rayHit.position;
+    ray.direction = reflect(ray.direction, rayHit.normal);
+
+    attenuation = sphereBuffer[rayHit.sphereIndex].albedo;
+    return true; 
+}
+
+bool LambertianScatter(in RayHit rayHit, inout float state, inout Ray ray, inout float4 attenuation)
+{
+    const float epsilon = 1e-4f;
+    
+    ray.position = rayHit.position + rayHit.normal * epsilon; 
+    ray.direction = rayHit.normal + RandomFloat3(state);
+
+    attenuation = sphereBuffer[rayHit.sphereIndex].albedo * sphereBuffer[rayHit.sphereIndex].diffuseStrength;
+    return true; 
+}
+
+bool MaterialInteract(in RayHit rayHit, inout float state, inout Ray ray, inout float4 attenuation)
+{
+    switch (sphereBuffer[rayHit.sphereIndex].materialType)
+    {
+        case 0:
+            return LambertianScatter(rayHit, state, ray, attenuation);
+        default:
+            return Reflection(rayHit, ray, attenuation);
+    }
+}
+
+float4 RayColor(Ray ray, inout uint state)
+{   
+    RayHit rayHit = InitRayHit();
+
+    bool globalHit = false;
+    float4 rayColor = 1;
+    float incomingColor = 0;
+    for(int i = 0; i < _childRayCount; i++)
+    {
+        if(RayTrace(ray, rayHit))
+        {
+            globalHit = true;
+            ray.position = rayHit.position + rayHit.normal + (1e-4);
+            ray.direction = rayHit.normal + RandomFloat3(state);
+
+            rayColor *= sphereBuffer[rayHit.sphereIndex].albedo;
+            continue;
+        }
+
+        break;
+    }
+
+    if(globalHit)
+    {
+        return rayColor;
+    }
+
+    float3 unit = normalize(ray.direction);
+    float y = 0.5 * (unit.y + 1);
+    return (1 - y) * _ambientColorHorizon + y * _ambientColorSky;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint height, width;
+    result.GetDimensions(height, width);
+
+    uint state = id.x + id.y * width;
+    float2 nvc = id.xy / float2(width, height) * 2 - 1;
+
+    Ray ray = GetCameraRay(nvc);
+
+    float4 aggregateColor;
+    for(int i = 0; i < _pixelRayCount; i++)
+    {
+        aggregateColor += RayColor(ray, state);
+    }
+
+    result[id.xy] = aggregateColor / _pixelRayCount; 
+}    
