@@ -34,8 +34,6 @@ struct Sphere
 
 cbuffer RenderThresholds
 {
-    float _renderThreshold;
-    
     float _minimumRenderThreshold;
     float _maximumRenderThreshold;
 }
@@ -175,15 +173,11 @@ bool RayTrace(in Ray ray, inout RayHit finalHit)
         if(CalculateHit(sphere, ray, closest, rayHit))
         {
             hit = true;
+
             closest = rayHit.t;
 
             finalHit = rayHit;
             finalHit.sphereIndex = i;
-        }
-
-        if(closest < _renderThreshold)
-        {
-            break;
         }
     }
 
@@ -221,36 +215,47 @@ bool MaterialInteract(in RayHit rayHit, inout float state, inout Ray ray, inout 
     }
 }
 
+/*
+ *color ray_color(const ray& r, int depth, const hittable& world) const {
+    // If we've exceeded the ray bounce limit, no more light is gathered.
+    if (depth <= 0)
+        return color(0,0,0);
+
+    hit_record rec;
+
+    if (world.hit(r, interval(0, infinity), rec)) {
+        vec3 direction = random_on_hemisphere(rec.normal);
+        return 0.5 * ray_color(ray(rec.p, direction), depth-1, world);
+    }
+
+    vec3 unit_direction = unit_vector(r.direction());
+    auto a = 0.5*(unit_direction.y() + 1.0);
+    return (1.0-a)*color(1.0, 1.0, 1.0) + a*color(0.5, 0.7, 1.0);
+}
+*/
+
 float4 RayColor(Ray ray, inout uint state)
-{   
+{
     RayHit rayHit = InitRayHit();
 
-    bool globalHit = false;
-    float4 rayColor = 1;
-    float incomingColor = 0;
+    float4 multiplier = 1;
     for(int i = 0; i < _childRayCount; i++)
     {
         if(RayTrace(ray, rayHit))
         {
-            globalHit = true;
-            ray.position = rayHit.position + rayHit.normal + (1e-4);
+            ray.position = rayHit.position + rayHit.normal * 1e-4;
             ray.direction = rayHit.normal + RandomFloat3(state);
 
-            rayColor *= sphereBuffer[rayHit.sphereIndex].albedo;
+            multiplier *= 0.5;
             continue;
         }
 
-        break;
+        float3 unit = normalize(ray.direction);
+        float y = 0.5 * (unit.y + 1);
+        return multiplier * ((1 - y) * _ambientColorHorizon + y * _ambientColorSky);
     }
 
-    if(globalHit)
-    {
-        return rayColor;
-    }
-
-    float3 unit = normalize(ray.direction);
-    float y = 0.5 * (unit.y + 1);
-    return (1 - y) * _ambientColorHorizon + y * _ambientColorSky;
+    return 0;
 }
 
 [numthreads(8,8,1)]

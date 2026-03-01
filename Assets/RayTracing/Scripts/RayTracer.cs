@@ -12,7 +12,6 @@ namespace RayTracing.Scripts
         [SerializeField] private Camera cam;
         [SerializeField] private ComputeShader rayTracingShader;
         
-        [SerializeField] private float renderThreshold;
         [SerializeField] private float maximumRenderThreshold;
         [SerializeField] private float minimumRenderThreshold;
 
@@ -34,7 +33,6 @@ namespace RayTracing.Scripts
         private int cameraToWorldIndex;
         private int cameraProjectionInverseIndex;
 
-        private int renderThresholdIndex;
         private int maximumRenderThresholdIndex;
         private int minimumRenderThresholdIndex;
         
@@ -87,7 +85,6 @@ namespace RayTracing.Scripts
             
             resultTextureIndex = Shader.PropertyToID("result");
             
-            renderThresholdIndex = Shader.PropertyToID("_renderThreshold");
             minimumRenderThresholdIndex = Shader.PropertyToID("_minimumRenderThreshold");
             maximumRenderThresholdIndex = Shader.PropertyToID("_maximumRenderThreshold");
 
@@ -107,7 +104,6 @@ namespace RayTracing.Scripts
             rayTracingShader.SetMatrix(cameraToWorldIndex, cam.cameraToWorldMatrix);
             rayTracingShader.SetMatrix(cameraProjectionInverseIndex, cam.projectionMatrix.inverse);
             
-            rayTracingShader.SetFloat(renderThresholdIndex, renderThreshold);
             rayTracingShader.SetFloat(minimumRenderThresholdIndex, minimumRenderThreshold);
             rayTracingShader.SetFloat(maximumRenderThresholdIndex, maximumRenderThreshold);
             
