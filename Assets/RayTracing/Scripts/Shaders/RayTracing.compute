@@ -52,6 +52,9 @@ cbuffer Ambience
     float4 _ambientColorHorizon;
 }
 
+const float epsilon = 1e-4;
+const float nearZero = 1e-8;
+
 RWTexture2D<float4> result;
 
 float4x4 cameraToWorld;
@@ -59,6 +62,11 @@ float4x4 cameraProjectionInverse;
 
 int sphereCount;
 StructuredBuffer<Sphere> sphereBuffer;
+
+bool NearZero(float3 value)
+{
+    return abs(value.x) < nearZero && abs(value.y) < nearZero && abs(value.z) < nearZero;
+}
 
 // www.pcg-random.org and www.shadertoy.com/view/XlGcRh, and Sebastian Lagues coding adventure :D
 float RandomValue(inout uint state)
@@ -200,6 +208,11 @@ bool LambertianScatter(in RayHit rayHit, inout float state, inout Ray ray, inout
     ray.position = rayHit.position + rayHit.normal * epsilon; 
     ray.direction = rayHit.normal + RandomFloat3(state);
 
+    if(NearZero(ray.direction))
+    {
+        ray.direction = rayHit.normal;
+    }
+
     attenuation = sphereBuffer[rayHit.sphereIndex].albedo * sphereBuffer[rayHit.sphereIndex].diffuseStrength;
     return true; 
 }
@@ -215,44 +228,28 @@ bool MaterialInteract(in RayHit rayHit, inout float state, inout Ray ray, inout 
     }
 }
 
-/*
- *color ray_color(const ray& r, int depth, const hittable& world) const {
-    // If we've exceeded the ray bounce limit, no more light is gathered.
-    if (depth <= 0)
-        return color(0,0,0);
-
-    hit_record rec;
-
-    if (world.hit(r, interval(0, infinity), rec)) {
-        vec3 direction = random_on_hemisphere(rec.normal);
-        return 0.5 * ray_color(ray(rec.p, direction), depth-1, world);
-    }
-
-    vec3 unit_direction = unit_vector(r.direction());
-    auto a = 0.5*(unit_direction.y() + 1.0);
-    return (1.0-a)*color(1.0, 1.0, 1.0) + a*color(0.5, 0.7, 1.0);
-}
-*/
-
 float4 RayColor(Ray ray, inout uint state)
 {
     RayHit rayHit = InitRayHit();
 
-    float4 multiplier = 1;
+    float4 rayColor = 1;
     for(int i = 0; i < _childRayCount; i++)
     {
         if(RayTrace(ray, rayHit))
         {
-            ray.position = rayHit.position + rayHit.normal * 1e-4;
-            ray.direction = rayHit.normal + RandomFloat3(state);
+            float4 attenuation;
+            if(MaterialInteract(rayHit, state, ray, attenuation))
+            {
+                rayColor *= attenuation;
+                continue;
+            }
 
-            multiplier *= 0.5;
-            continue;
+            break; 
         }
 
         float3 unit = normalize(ray.direction);
         float y = 0.5 * (unit.y + 1);
-        return multiplier * ((1 - y) * _ambientColorHorizon + y * _ambientColorSky);
+        return rayColor * ((1 - y) * _ambientColorHorizon + y * _ambientColorSky);
     }
 
     return 0;
