@@ -341,9 +341,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RayTracing.Scripts.Sphere
   material:
-    materialType: 0
+    materialType: 1
     albedo: {r: 1, g: 1, b: 1, a: 1}
     emissionColor: {r: 1, g: 1, b: 1, a: 0}
+    fuzzStrength: 0.3
     diffuseStrength: 0.8
     emissionStrength: 0.2
 --- !u!1 &923313999
@@ -382,6 +383,7 @@ MonoBehaviour:
     materialType: 0
     albedo: {r: 0.5377358, g: 0.5377358, b: 0.5377358, a: 1}
     emissionColor: {r: 0, g: 0, b: 0, a: 0}
+    fuzzStrength: 0
     diffuseStrength: 0.8
     emissionStrength: 0
 --- !u!135 &923314001
@@ -583,7 +585,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RayTracing.Scripts.RayTracer
   cam: {fileID: 1551547862}
   rayTracingShader: {fileID: 7200000, guid: 32b8c6bd723084332872852a7bb626e3, type: 3}
-  renderThreshold: 0.2
   maximumRenderThreshold: 10000
   minimumRenderThreshold: 0.001
   pixelRayCount: 5

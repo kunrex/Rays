@@ -28,6 +28,7 @@ struct Sphere
     float4 albedo;
     float4 emissionColor;
 
+    float fuzzStrength;
     float diffuseStrength;
     float emissiveStrength;
 };
@@ -192,13 +193,16 @@ bool RayTrace(in Ray ray, inout RayHit finalHit)
     return hit;
 }
 
-bool Reflection(in RayHit rayHit, inout Ray ray, inout float4 attenuation)
+bool Reflection(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 attenuation)
 {
     ray.position = rayHit.position;
-    ray.direction = reflect(ray.direction, rayHit.normal);
+    Sphere sphere = sphereBuffer[rayHit.sphereIndex];
+    
+    float3 reflected = reflect(ray.direction, rayHit.normal);
+    ray.direction = normalize(reflected) + sphere.fuzzStrength * RandomFloat3(state);
 
-    attenuation = sphereBuffer[rayHit.sphereIndex].albedo;
-    return true; 
+    attenuation = sphere.albedo;
+    return dot(ray.direction, rayHit.normal) > 0; 
 }
 
 bool LambertianScatter(in RayHit rayHit, inout float state, inout Ray ray, inout float4 attenuation)
@@ -213,7 +217,8 @@ bool LambertianScatter(in RayHit rayHit, inout float state, inout Ray ray, inout
         ray.direction = rayHit.normal;
     }
 
-    attenuation = sphereBuffer[rayHit.sphereIndex].albedo * sphereBuffer[rayHit.sphereIndex].diffuseStrength;
+    Sphere sphere = sphereBuffer[rayHit.sphereIndex];
+    attenuation = sphere.albedo * sphere.diffuseStrength;
     return true; 
 }
 
@@ -224,7 +229,7 @@ bool MaterialInteract(in RayHit rayHit, inout float state, inout Ray ray, inout 
         case 0:
             return LambertianScatter(rayHit, state, ray, attenuation);
         default:
-            return Reflection(rayHit, ray, attenuation);
+            return Reflection(rayHit, state, ray, attenuation);
     }
 }
 

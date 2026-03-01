@@ -34,6 +34,7 @@ namespace RayTracing.Scripts
         public Color albedo;
         public Color emissionColor;
 
+        [Range(0, 1)] public float fuzzStrength;
         public float diffuseStrength;
         public float emissionStrength;
     }
@@ -48,7 +49,8 @@ namespace RayTracing.Scripts
                 
         public Vector4 albedo;
         public Vector4 emissionColor;
-        
+
+        public float fuzzStrength;
         public float diffuseStrength;
         public float emissionStrength;
                 
@@ -62,6 +64,7 @@ namespace RayTracing.Scripts
             albedo = sphere.material.albedo;
             emissionColor = sphere.material.emissionColor;
 
+            fuzzStrength = sphere.material.fuzzStrength;
             diffuseStrength = sphere.material.diffuseStrength;
             emissionStrength = sphere.material.emissionStrength;
         }
