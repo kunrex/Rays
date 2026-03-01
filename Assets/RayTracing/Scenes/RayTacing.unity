@@ -341,11 +341,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RayTracing.Scripts.Sphere
   material:
-    materialType: 1
+    materialType: 2
     albedo: {r: 1, g: 1, b: 1, a: 1}
     emissionColor: {r: 1, g: 1, b: 1, a: 0}
     fuzzStrength: 0.3
     diffuseStrength: 0.8
+    refractiveIndex: 1.5
     emissionStrength: 0.2
 --- !u!1 &923313999
 GameObject:
@@ -385,6 +386,7 @@ MonoBehaviour:
     emissionColor: {r: 0, g: 0, b: 0, a: 0}
     fuzzStrength: 0
     diffuseStrength: 0.8
+    refractiveIndex: 0
     emissionStrength: 0
 --- !u!135 &923314001
 SphereCollider:
@@ -590,6 +592,7 @@ MonoBehaviour:
   pixelRayCount: 5
   childRayCount: 50
   ambientStrength: 1
+  ambientRefractiveIndex: 1.33
   ambientColorSky: {r: 0, g: 0.5647059, b: 1, a: 1}
   ambientColorHorizon: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1660057539 &9223372036854775807

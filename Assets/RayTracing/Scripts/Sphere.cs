@@ -22,7 +22,8 @@ namespace RayTracing.Scripts
     public enum MaterialType : int
     {
         Lambertian = 0,
-        Metallic = 1
+        Metallic = 1,
+        Dielectric = 2,
     }
 
     
@@ -36,6 +37,7 @@ namespace RayTracing.Scripts
 
         [Range(0, 1)] public float fuzzStrength;
         public float diffuseStrength;
+        [Min(1)] public float refractiveIndex;
         public float emissionStrength;
     }
 
@@ -52,6 +54,7 @@ namespace RayTracing.Scripts
 
         public float fuzzStrength;
         public float diffuseStrength;
+        public float refractiveIndex;
         public float emissionStrength;
                 
         public SphereData(Sphere sphere)
@@ -66,6 +69,7 @@ namespace RayTracing.Scripts
 
             fuzzStrength = sphere.material.fuzzStrength;
             diffuseStrength = sphere.material.diffuseStrength;
+            refractiveIndex = sphere.material.refractiveIndex;
             emissionStrength = sphere.material.emissionStrength;
         }
     }

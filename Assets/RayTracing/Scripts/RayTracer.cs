@@ -19,6 +19,7 @@ namespace RayTracing.Scripts
         [SerializeField] private int childRayCount;
 
         [SerializeField, Range(0, 1)] private float ambientStrength;
+        [SerializeField, Min(1)] private float ambientRefractiveIndex;
         
         [SerializeField] private Color ambientColorSky;
         [SerializeField] private Color ambientColorHorizon;
@@ -43,6 +44,8 @@ namespace RayTracing.Scripts
         private int pixelRayCountIndex;
 
         private int ambientStrengthIndex;
+        private int ambientRefractiveIndexIndex;
+        
         private int ambientColorSkyIndex;
         private int ambientColorHorizonIndex;
         
@@ -95,6 +98,8 @@ namespace RayTracing.Scripts
             childRayCountIndex = Shader.PropertyToID("_childRayCount");
 
             ambientStrengthIndex = Shader.PropertyToID("_ambientStrength");
+            ambientRefractiveIndexIndex = Shader.PropertyToID("_ambientRefractiveIndex");
+            
             ambientColorSkyIndex = Shader.PropertyToID("_ambientColorSky");
             ambientColorHorizonIndex = Shader.PropertyToID("_ambientColorHorizon");
         }
@@ -111,6 +116,8 @@ namespace RayTracing.Scripts
             rayTracingShader.SetInt(childRayCountIndex, childRayCount);
             
             rayTracingShader.SetFloat(ambientStrengthIndex, ambientStrength);
+            rayTracingShader.SetFloat(ambientRefractiveIndexIndex, ambientRefractiveIndex);
+            
             rayTracingShader.SetVector(ambientColorSkyIndex, ambientColorSky);
             rayTracingShader.SetVector(ambientColorHorizonIndex, ambientColorHorizon);
         }

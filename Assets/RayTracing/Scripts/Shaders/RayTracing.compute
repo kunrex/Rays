@@ -30,6 +30,7 @@ struct Sphere
 
     float fuzzStrength;
     float diffuseStrength;
+    float refractiveIndex;
     float emissiveStrength;
 };
 
@@ -48,6 +49,7 @@ cbuffer GlobalCounts
 cbuffer Ambience 
 {
     float _ambientStrength;
+    float _ambientRefractiveIndex;
     
     float4 _ambientColorSky;
     float4 _ambientColorHorizon;
@@ -193,6 +195,38 @@ bool RayTrace(in Ray ray, inout RayHit finalHit)
     return hit;
 }
 
+float Reflectance(float cosine, float refractiveIndex)
+{
+    float a0 = (1  - refractiveIndex) / (1 + refractiveIndex);
+    a0 *= a0;
+    return a0 + (1 - a0) * pow((1 - cosine), 5);
+}
+
+bool Refract(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 attenuation)
+{
+    attenuation = 1;
+    ray.position = rayHit.position;
+    
+    float3 normalizedDirection = normalize(ray.direction);
+    float cosTheta = min(dot(-normalizedDirection, rayHit.normal), 1);
+    float sinTheta = sqrt(1 - cosTheta * cosTheta);
+
+    Sphere sphere = sphereBuffer[rayHit.sphereIndex];
+    float refractiveIndex = rayHit.inside ? (sphere.refractiveIndex / _ambientRefractiveIndex) : (_ambientRefractiveIndex / sphere.refractiveIndex);
+    if(sinTheta * refractiveIndex > 1 || Reflectance(cosTheta, refractiveIndex) > RandomValue(state))
+    {
+        ray.direction = reflect(normalizedDirection, rayHit.normal);
+    }
+    else
+    {
+        float3 outPerpendicular = refractiveIndex * (normalizedDirection + cosTheta * rayHit.normal);
+        float3 outParallel = -sqrt(abs(1 - dot(outPerpendicular, outPerpendicular))) * rayHit.normal;
+        ray.direction = outPerpendicular + outParallel;
+    }
+    
+    return true;
+}
+
 bool Reflection(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 attenuation)
 {
     ray.position = rayHit.position;
@@ -203,6 +237,11 @@ bool Reflection(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 
 
     attenuation = sphere.albedo;
     return dot(ray.direction, rayHit.normal) > 0; 
+}
+
+bool DielectricScatter(in RayHit rayHit, inout float state, inout Ray ray, inout float4 attenuation)
+{
+    
 }
 
 bool LambertianScatter(in RayHit rayHit, inout float state, inout Ray ray, inout float4 attenuation)
@@ -228,8 +267,10 @@ bool MaterialInteract(in RayHit rayHit, inout float state, inout Ray ray, inout 
     {
         case 0:
             return LambertianScatter(rayHit, state, ray, attenuation);
-        default:
+        case 1: 
             return Reflection(rayHit, state, ray, attenuation);
+        default:
+            return Refract(rayHit, state, ray, attenuation);
     }
 }
 
