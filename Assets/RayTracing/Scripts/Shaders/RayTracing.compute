@@ -202,7 +202,7 @@ float Reflectance(float cosine, float refractiveIndex)
     return a0 + (1 - a0) * pow((1 - cosine), 5);
 }
 
-bool Refract(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 attenuation)
+bool DielectricScatter(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 attenuation)
 {
     attenuation = 1;
     ray.position = rayHit.position;
@@ -227,7 +227,7 @@ bool Refract(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 att
     return true;
 }
 
-bool Reflection(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 attenuation)
+bool MetallicScatter(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 attenuation)
 {
     ray.position = rayHit.position;
     Sphere sphere = sphereBuffer[rayHit.sphereIndex];
@@ -239,15 +239,8 @@ bool Reflection(in RayHit rayHit, inout uint state, inout Ray ray, inout float4 
     return dot(ray.direction, rayHit.normal) > 0; 
 }
 
-bool DielectricScatter(in RayHit rayHit, inout float state, inout Ray ray, inout float4 attenuation)
-{
-    
-}
-
 bool LambertianScatter(in RayHit rayHit, inout float state, inout Ray ray, inout float4 attenuation)
 {
-    const float epsilon = 1e-4f;
-    
     ray.position = rayHit.position + rayHit.normal * epsilon; 
     ray.direction = rayHit.normal + RandomFloat3(state);
 
@@ -268,9 +261,9 @@ bool MaterialInteract(in RayHit rayHit, inout float state, inout Ray ray, inout 
         case 0:
             return LambertianScatter(rayHit, state, ray, attenuation);
         case 1: 
-            return Reflection(rayHit, state, ray, attenuation);
+            return MetallicScatter(rayHit, state, ray, attenuation);
         default:
-            return Refract(rayHit, state, ray, attenuation);
+            return DielectricScatter(rayHit, state, ray, attenuation);
     }
 }
 
