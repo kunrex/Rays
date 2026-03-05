@@ -857,7 +857,7 @@ MonoBehaviour:
   minimumRenderThreshold: 0.001
   pixelRayCount: 10
   childRayCount: 50
-  ambientStrength: 1
+  ambientStrength: 0
   ambientRefractiveIndex: 1.33
   ambientColorSky: {r: 0, g: 0.5647059, b: 1, a: 1}
   ambientColorHorizon: {r: 1, g: 1, b: 1, a: 1}
@@ -880,7 +880,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1622209539
 MonoBehaviour:
   m_ObjectHideFlags: 0
