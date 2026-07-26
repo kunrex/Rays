@@ -49,7 +49,7 @@ void applyRandom(inout float2 direction)
     float randomAngle = (rand(direction) - 0.5) * 2.0 * _agentTurnStrength;
     float cosAngle = cos(randomAngle);
     float sinAngle = sin(randomAngle);
-    
+
     float ox = direction.x;
     float oy = direction.y;
 
@@ -68,11 +68,11 @@ float2 calculateDirection(float2 direction, in uint2 uv)
     uint2 localLeft  = uint2(uv + rotateVector(direction, -_agentViewAngle) * _agentViewDistance);
     uint2 localRight = uint2(uv + rotateVector(direction,  _agentViewAngle) * _agentViewDistance);
     uint2 localFront = uint2(uv + direction * _agentViewDistance);
-    
+
     float leftStrength  = dot(source[localLeft].rgb,  float3(1, 1, 1));
     float rightStrength = dot(source[localRight].rgb, float3(1, 1, 1));
     float frontStrength = dot(source[localFront].rgb, float3(1, 1, 1));
-    
+
     if (leftStrength > rightStrength)
     {
         if (leftStrength > frontStrength)
@@ -80,7 +80,7 @@ float2 calculateDirection(float2 direction, in uint2 uv)
     }
     else if (rightStrength > frontStrength)
         direction = rotateVector(direction, _agentViewAngle);
-    
+
     applyRandom(direction);
     return direction;
 }
@@ -90,7 +90,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 {
     uint height, width;
     result.GetDimensions(height, width);
-    
+
     Agent current = agents[id.x];
     uint2 actual = current.normalizedPosition * float2(width, height);
 
@@ -103,9 +103,9 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         newDirection = reflectDirection(newPosition, current.forward);
     else
         newDirection = calculateDirection(current.forward, actual);
-    
+
     current.normalizedPosition = newPosition;
     current.forward = newDirection;
-    
+
     agents[id.x] = current;
 }
